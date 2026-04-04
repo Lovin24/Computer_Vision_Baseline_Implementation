@@ -34,5 +34,11 @@ Running Inference
 You can run the full end-to-end pipeline on a single video using the main script.
 
 Bash
+
+```
 python -m src.main --video data/Train/Burglary/Burglary001_x264A.mp4 --device cuda
+```
+
 The script will output the duration, the detection threshold scores, the exact time segment the anomaly was found, and the generated caption.
+
+the model weights are uploaded on google drive - https://drive.google.com/drive/folders/1W1DnKulq3IIWqB47sjqSEmbCnEzrpl4K?usp=sharing

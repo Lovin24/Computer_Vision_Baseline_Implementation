@@ -25,6 +25,8 @@ class PreprocessConfig:
     clip_length: int = 16       # frames per C3D clip
     clip_stride: int = 16       # non-overlapping (matches original repo)
 
+    i3d_feature_dim: int = 1024
+
     splits: Tuple[str, ...] = ("Train", "Test")
     video_extensions: Tuple[str, ...] = (".mp4", ".avi")
 
@@ -33,7 +35,7 @@ class PreprocessConfig:
 class AnomalyDetectionConfig:
     """Hyperparameters for the MIL anomaly detector (Part 1)."""
 
-    feature_dim: int = 4096     # C3D FC6 output dimension
+    feature_dim: int = 1024     # I3D feature output dimension
 
     # 3-layer FC classifier
     dropout_rate: float = 0.6

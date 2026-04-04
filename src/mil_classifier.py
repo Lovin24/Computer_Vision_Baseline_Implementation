@@ -32,15 +32,15 @@ NORMAL_CATEGORY = "NormalVideos"
 class AnomalyClassifier(nn.Module):
     """3-layer FC anomaly scoring network.
 
-    Per-segment input (4096-D) -> anomaly score in [0, 1].
+    Per-segment input (input_dim) -> anomaly score in [0, 1].
 
     Layer dims from the original Sultani ``model.json``:
-        4096 -> 512 (ReLU, dropout) -> 32 (linear, dropout) -> 1 (sigmoid)
+        input_dim -> 512 (ReLU, dropout) -> 32 (linear, dropout) -> 1 (sigmoid)
     """
 
-    def __init__(self, feature_dim: int = 4096, dropout: float = 0.6) -> None:
+    def __init__(self, input_dim: int = 1024, dropout: float = 0.6) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(feature_dim, 512)
+        self.fc1 = nn.Linear(input_dim, 512)
         self.fc2 = nn.Linear(512, 32)
         self.fc3 = nn.Linear(32, 1)
         self.drop = nn.Dropout(p=dropout)
@@ -109,14 +109,14 @@ class MILRankingLoss(nn.Module):
 
 
 class MILVideoDataset(Dataset):
-    """Loads pre-extracted (32, 4096) ``.npy`` feature files.
+    """Loads pre-extracted (32, input_dim) ``.npy`` feature files.
 
     Scans *features_dir* for category sub-directories.  Files under
     ``NormalVideos/`` are labelled 0 (normal); everything else is 1
     (anomaly).
     """
 
-    def __init__(self, features_dir: Path) -> None:
+    def __init__(self, features_dir: Path, input_dim: int = 1024) -> None:
         features_dir = Path(features_dir)
         self.paths: List[Path] = []
         self.labels: List[int] = []
@@ -130,7 +130,7 @@ class MILVideoDataset(Dataset):
                 continue
             try:
                 arr = np.load(str(npy_file))
-                if arr.shape != (32, 4096):
+                if arr.shape != (32, input_dim):
                     skipped += 1
                     continue
             except Exception:
@@ -160,7 +160,7 @@ class MILVideoDataset(Dataset):
         return len(self.paths)
 
     def __getitem__(self, idx: int):
-        features = np.load(str(self.paths[idx])).astype(np.float32)  # (32, 4096)
+        features = np.load(str(self.paths[idx])).astype(np.float32)  # (32, input_dim)
         label = self.labels[idx]
         return torch.from_numpy(features), label
 
@@ -223,7 +223,7 @@ def train_mil(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = MILVideoDataset(features_dir)
+    dataset = MILVideoDataset(features_dir, input_dim=config.feature_dim)
     if not dataset.anomaly_indices or not dataset.normal_indices:
         log.error(
             "Need both anomaly and normal videos.  Found %d anomaly, %d normal.",
@@ -239,7 +239,7 @@ def train_mil(
     loader = DataLoader(dataset, batch_sampler=sampler, collate_fn=_collate_mil)
 
     model = AnomalyClassifier(
-        feature_dim=config.feature_dim,
+        input_dim=config.feature_dim,
         dropout=config.dropout_rate,
     ).to(device)
     criterion = MILRankingLoss(
@@ -308,8 +308,12 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Captionomaly -- MIL Anomaly Classifier",
     )
     p.add_argument(
-        "--features", type=Path, required=True,
-        help="Directory containing Train/ .npy feature files (e.g. data/features/c3d/Train)",
+        "--features-dir", type=Path, default=Path("data/features/i3d"),
+        help="Directory containing Train/ .npy feature files (default: data/features/i3d)",
+    )
+    p.add_argument(
+        "--input-dim", type=int, default=1024,
+        help="Feature dimension of the input (default: 1024)",
     )
     p.add_argument(
         "--output", type=Path, default=Path("data/weights"),
@@ -327,14 +331,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--lr", type=float, default=0.001,
         help="Learning rate for Adagrad (default: 0.001)",
     )
+    p.add_argument(
+        "--test", action="store_true",
+        help="Run a dummy tensor through the model to test architecture dimensions",
+    )
     return p
 
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = _build_parser().parse_args(argv)
 
-    if not args.features.is_dir():
-        log.error("Features directory not found: %s", args.features)
+    if args.test:
+        device = args.device if torch.cuda.is_available() else "cpu"
+        model = AnomalyClassifier(input_dim=args.input_dim).to(device)
+        dummy_input = torch.randn(32, args.input_dim).to(device)
+        output = model(dummy_input)
+        log.info(f"Test passed! Output shape from dummy ({32}, {args.input_dim}) tensor: {output.shape}")
+        sys.exit(0)
+
+    if not args.features_dir.is_dir():
+        log.error("Features directory not found: %s", args.features_dir)
         sys.exit(1)
 
     if args.device == "cuda" and not torch.cuda.is_available():
@@ -342,7 +358,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         args.device = "cpu"
 
     train_mil(
-        features_dir=args.features,
+        features_dir=args.features_dir,
         output_dir=args.output,
         device=args.device,
         num_epochs=args.epochs,

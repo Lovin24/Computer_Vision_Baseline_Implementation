@@ -4,14 +4,16 @@ This is my 6th-semester Computer Vision project for my B.Tech in Computer Scienc
 
 This codebase is a modernized, from-scratch PyTorch reimplementation of older TensorFlow 1.x architectures (specifically based on the Sultani anomaly detection paper and the UCFC-VD captioning decoder).
 
+_Update:_ I upgraded the feature extraction backbone from C3D to I3D to get better spatial-temporal features, and adjusted the MIL neural network to handle the new 1024-D inputs instead of the old 4096-D ones. This also improves the efficiency of the model
+
 ## How It Works
 
 The architecture is split into two main pipelines that run sequentially during inference:
 
 ### Pipeline 1: Anomaly Detection
 
-- **Feature Extraction:** Slices the video into 32 segments and passes them through a C3D network to extract spatial-temporal features.
-- **MIL Classifier:** Uses a Multiple Instance Learning (MIL) ranking framework to score each segment between 0.0 and 1.0.
+- **Feature Extraction:** Slices the video into 32 segments and passes them through an I3D network (upgraded from C3D) to extract spatial-temporal features.
+- **MIL Classifier:** Uses a Multiple Instance Learning (MIL) ranking framework to score each segment between 0.0 and 1.0. The input layers are now tailored for the 1024-D I3D features.
 - **Cropping:** If a segment crosses the 0.5 threshold, the script identifies the exact start and end timestamps of the crime and crops the video to that specific window.
 
 ### Pipeline 2: Anomaly Captioning

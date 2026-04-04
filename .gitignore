@@ -1,0 +1,37 @@
+# Python / Environment
+__pycache__/
+*.py[cod]
+*venv*/
+.env
+.ipynb_checkpoints/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Large Datasets & Raw Videos
+data/Train/
+data/Test/
+*.zip
+
+# Massive Pre-extracted Features
+data/features/c3d/
+data/features/i3d/
+data/features/resnext/
+data/temp_anomaly_data_txt/
+data/temp_normal_txt/
+
+# Heavy Model Weights
+data/weights/*.pth
+data/weights/*.pickle
+data/weights/*.pt
+
+# Massive Embedding Files
+data/glove.840B.300d.txt
+data/glove_cache.pkl
+data/embedding_matrix.npy
+Captionomaly_A_Deep_Learning_Toolbox_for_Anomaly_Captioning_in_Social_Surveillance_Systems.pdf
+proposed_architecture.png
+Architecture.png
+Captionomaly_Colab.ipynb
+original_repo/

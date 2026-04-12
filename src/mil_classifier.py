@@ -29,6 +29,44 @@ log = logging.getLogger(__name__)
 NORMAL_CATEGORY = "NormalVideos"
 
 
+class TemporalGCN(nn.Module):
+    """Temporal Graph Convolutional Network layer for video segments."""
+
+    def __init__(self, in_features: int, out_features: int) -> None:
+        super().__init__()
+        self.weight_proj = nn.Linear(in_features, out_features)
+        self._build_adjacency_matrix()
+
+    def _build_adjacency_matrix(self) -> None:
+        # Create a fixed 32x32 adjacency matrix
+        adj = torch.zeros(32, 32)
+        for i in range(32):
+            adj[i, i] = 1.0
+            if i > 0:
+                adj[i, i - 1] = 1.0
+            if i < 31:
+                adj[i, i + 1] = 1.0
+        
+        # Row-normalize the matrix
+        row_sum = adj.sum(dim=1, keepdim=True)
+        adj_norm = adj / row_sum
+        
+        # Register as buffer so it moves to GPU but isn't updated by gradients
+        self.register_buffer("adj_matrix", adj_norm)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x: (Batch, 32, in_features)
+        Returns: (Batch, 32, out_features)
+        """
+        # Multiply adjacency matrix by input
+        ax = torch.matmul(self.adj_matrix, x)
+        
+        # Apply weight projection and ReLU
+        out = self.weight_proj(ax)
+        return torch.relu(out)
+
+
 class AnomalyClassifier(nn.Module):
     """3-layer FC anomaly scoring network.
 
@@ -40,8 +78,9 @@ class AnomalyClassifier(nn.Module):
 
     def __init__(self, input_dim: int = 1024, dropout: float = 0.6) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, 512)
-        self.fc2 = nn.Linear(512, 32)
+        self.gcn = TemporalGCN(in_features=input_dim, out_features=512)
+        self.fc1 = nn.Linear(512, 128)
+        self.fc2 = nn.Linear(128, 32)
         self.fc3 = nn.Linear(32, 1)
         self.drop = nn.Dropout(p=dropout)
         self.relu = nn.ReLU()
@@ -55,11 +94,12 @@ class AnomalyClassifier(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward and give score (B,)."""
+        """Forward and give score (B, 32)."""
+        x = self.gcn(x)
         x = self.drop(self.relu(self.fc1(x)))
         x = self.drop(self.fc2(x))               # linear activation
-        x = self.sigmoid(self.fc3(x))             # (B, 1)
-        return x.squeeze(-1)                      # (B,)
+        x = self.sigmoid(self.fc3(x))             # (B, 32, 1)
+        return x.squeeze(-1)                      # (B, 32)
 
 
 class MILRankingLoss(nn.Module):
@@ -266,9 +306,8 @@ def train_mil(
             n_pos = config.batch_positive
             batch_size_total, num_seg, feat_dim = features.shape
 
-            # Forward all segments at once: reshape to (60*32, 4096)
-            scores = model(features.view(-1, feat_dim))    # (60*32,)
-            scores = scores.view(batch_size_total, num_seg) # (60, 32)
+            # Forward segments directly to model
+            scores = model(features) # (60, 32)
 
             # Split by label
             anom_mask = labels == 1
@@ -344,9 +383,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     if args.test:
         device = args.device if torch.cuda.is_available() else "cpu"
         model = AnomalyClassifier(input_dim=args.input_dim).to(device)
-        dummy_input = torch.randn(32, args.input_dim).to(device)
+        dummy_input = torch.randn(2, 32, args.input_dim).to(device)
         output = model(dummy_input)
-        log.info(f"Test passed! Output shape from dummy ({32}, {args.input_dim}) tensor: {output.shape}")
+        log.info(f"Test passed! Output shape from dummy ({2}, {32}, {args.input_dim}) tensor: {output.shape}")
         sys.exit(0)
 
     if not args.features_dir.is_dir():

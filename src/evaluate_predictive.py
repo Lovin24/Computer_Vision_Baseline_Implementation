@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from predictive_transformer import PredictiveTransformer, calculate_anomaly_scores
+from src.predictive_transformer import PredictiveTransformer, calculate_anomaly_scores
 
 def evaluate_predictive(features_dir, weights_path, output_dir, device="cuda"):
     if device == "cuda" and not torch.cuda.is_available():

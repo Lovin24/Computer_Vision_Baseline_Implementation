@@ -8,7 +8,7 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 
-from predictive_transformer import PredictiveTransformer
+from src.predictive_transformer import PredictiveTransformer
 
 class NormalVideoDataset(Dataset):
     def __init__(self, features_dir):

@@ -2,7 +2,7 @@
 
 This is my 6th-semester Computer Vision project for my B.Tech in Computer Science. The goal of this project is to take raw CCTV surveillance footage, automatically detect if a crime or anomaly is happening, isolate the exact timestamp, and then generate a natural English sentence describing what is going on.
 
-## 🚀 Project Evolution & Incremental Upgrades
+##  Project Evolution & Incremental Upgrades
 
 This project was built iteratively, continuously upgrading components to achieve state-of-the-art results:
 
@@ -23,7 +23,7 @@ Finally, we replaced the legacy VNS-GRU text decoder with a modern, from-scratch
 
 ---
 
-## ⚙️ How It Works Today
+##  How It Works Today
 
 The architecture is split into two main pipelines that run sequentially during inference:
 
@@ -37,7 +37,7 @@ The architecture is split into two main pipelines that run sequentially during i
 
 ---
 
-## 🛠️ Setup and Installation
+##  Setup and Installation
 
 1. Clone the repo and install the dependencies:
    ```bash
@@ -47,7 +47,7 @@ The architecture is split into two main pipelines that run sequentially during i
 
 *(Note: The model weights are hosted externally due to size limitations. You can download them [here on Google Drive](https://drive.google.com/drive/folders/1W1DnKulq3IIWqB47sjqSEmbCnEzrpl4K?usp=sharing). Place `.pth` files in `data/weights/`)*
 
-## 🏃 Running Inference
+##  Running Inference
 
 You can run the full end-to-end pipeline (Anomaly Detection -> Transformer Captioning) on the testing folder using the main inference script:
 

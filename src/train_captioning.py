@@ -107,11 +107,22 @@ def train_captioning(args):
         avg_loss = total_loss / len(dataloader)
         print(f"Epoch {epoch} completed. Average Loss: {avg_loss:.4f}")
         
-        # Save best model
+        # Save best model (include vocab so inference can decode correctly)
         if avg_loss < best_loss:
             best_loss = avg_loss
             print(f"New best loss! Saving model to {args.save_path}")
-            torch.save(model.state_dict(), args.save_path)
+            checkpoint = {
+                'model_state_dict': model.state_dict(),
+                'vocab': tokenizer.vocab,
+                'inverse_vocab': tokenizer.inverse_vocab,
+                'vocab_size': vocab_size,
+                'hidden_dim': args.hidden_dim,
+                'nhead': args.nhead,
+                'num_layers': args.num_layers,
+                'epoch': epoch,
+                'loss': avg_loss,
+            }
+            torch.save(checkpoint, args.save_path)
             
         scheduler.step()
 

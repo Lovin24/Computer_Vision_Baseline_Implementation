@@ -129,12 +129,30 @@ def main(args):
     # ---------------------------------------------------------
     print("\n--- Running Phase 2 (Caption Generation) ---")
     
-    if not os.path.exists(args.vocab_file):
-        print(f"Error: Vocabulary file not found at {args.vocab_file}. Run training first.")
+    if not os.path.exists(args.caption_weights):
+        print(f"Error: Caption weights not found at {args.caption_weights}. Run training first.")
         return
-        
-    tokenizer = SimpleTokenizer(vocab_file=args.vocab_file)
-    vocab_size = len(tokenizer.vocab)
+    
+    # Load checkpoint (may be a full dict with vocab, or a plain state_dict)
+    ckpt = torch.load(args.caption_weights, map_location=device, weights_only=False)
+    
+    if isinstance(ckpt, dict) and 'model_state_dict' in ckpt:
+        # New format: checkpoint includes vocab
+        tokenizer = SimpleTokenizer()
+        tokenizer.vocab = ckpt['vocab']
+        tokenizer.inverse_vocab = {int(k): v for k, v in ckpt['inverse_vocab'].items()}
+        vocab_size = ckpt['vocab_size']
+        state_dict = ckpt['model_state_dict']
+        print(f"Loaded vocab from checkpoint (size={vocab_size})")
+    else:
+        # Legacy format: plain state_dict, need separate vocab file
+        if not os.path.exists(args.vocab_file):
+            print(f"Error: Vocabulary file not found at {args.vocab_file}. Run training first.")
+            return
+        tokenizer = SimpleTokenizer(vocab_file=args.vocab_file)
+        vocab_size = len(tokenizer.vocab)
+        state_dict = ckpt
+        print(f"Loaded vocab from {args.vocab_file} (size={vocab_size})")
     
     caption_model = CaptionTransformer(
         vocab_size=vocab_size,
@@ -144,12 +162,8 @@ def main(args):
         num_layers=args.num_layers
     ).to(device)
     
-    if os.path.exists(args.caption_weights):
-        caption_model.load_state_dict(torch.load(args.caption_weights, map_location=device))
-        caption_model.eval()
-    else:
-        print(f"Warning: Caption weights not found at {args.caption_weights}. Proceeding with untrained model.")
-        caption_model.eval()
+    caption_model.load_state_dict(state_dict)
+    caption_model.eval()
         
     # Autoregressive Generation
     generated_text = generate_caption(

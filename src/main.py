@@ -25,7 +25,7 @@ from src.caption_features import (
     preprocess_frames_resnext,
 )
 from src.config import CaptioningConfig, PreprocessConfig
-from src.feature_extractor import C3DFeatureExtractor
+from src.feature_extractor_i3d import I3DFeatureExtractor
 from src.mil_classifier import AnomalyClassifier
 from src.preprocess import compute_segment_boundaries, get_video_info
 from src.vns_gru import VNSGRUDecoder
@@ -137,7 +137,7 @@ def find_anomalous_range(
 
 def run_detection(
     video_path: Path,
-    c3d_weights: Path,
+    i3d_weights: Path,
     mil_weights: Path,
     device: str,
 ) -> Tuple[np.ndarray, List[Tuple[int, int]], Dict]:
@@ -152,12 +152,12 @@ def run_detection(
     config = PreprocessConfig()
     info = get_video_info(video_path)
 
-    log.info("Extracting C3D features (32 segments) ...")
-    c3d = C3DFeatureExtractor(c3d_weights, device=device)
-    features = c3d.extract_video_features(video_path, config)  # (32, 4096)
+    log.info("Extracting I3D features (32 segments) ...")
+    i3d = I3DFeatureExtractor(weights_path=i3d_weights, device=device)
+    features = i3d.extract_video_features(video_path, config)  # (32, 1024)
 
     log.info("Scoring segments with MIL classifier ...")
-    classifier = AnomalyClassifier()
+    classifier = AnomalyClassifier(input_dim=1024)
     classifier.load_state_dict(
         torch.load(str(mil_weights), map_location=device, weights_only=True),
     )
@@ -259,7 +259,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     scores, boundaries, info = run_detection(
         video_path,
-        Path(args.c3d_weights),
+        Path(args.i3d_weights),
         Path(args.mil_weights),
         device,
     )
@@ -329,8 +329,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to a raw .mp4 video file",
     )
     p.add_argument(
-        "--c3d-weights", type=str, default="data/weights/c3d.pickle",
-        help="Path to C3D Sports-1M weights (default: data/weights/c3d.pickle)",
+        "--i3d-weights", type=str, default="data/weights/rgb_imagenet.pt",
+        help="Path to I3D pretrained weights (default: data/weights/rgb_imagenet.pt)",
     )
     p.add_argument(
         "--mil-weights", type=str, default="data/weights/mil_classifier_best.pth",
